@@ -12,11 +12,6 @@
 
 #include "erpc_framed_transport.h"
 
-#include <modm/architecture/utils.hpp>
-#include <modm/processing/timer.hpp>
-#include <modm/processing/resumable.hpp>
-
-
 namespace erpc {
 
 class Device
