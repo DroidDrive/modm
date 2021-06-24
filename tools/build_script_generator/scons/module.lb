@@ -11,6 +11,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # -----------------------------------------------------------------------------
 
+from os import getcwd
 from os.path import join, relpath, isdir, exists
 
 def init(module):
@@ -28,6 +29,9 @@ def prepare(module, options):
     module.add_option(
         PathOption(name="path.artifact", default="artifacts", absolute=True,
                    description=descr_path_artifact))
+    module.add_option(
+        BooleanOption(name="link_scons_to_pwd", default=False,
+                      description=descr_link_scons_to_pwd))
 
     module.add_collector(
         CallableCollector(name="flag_format",
@@ -142,6 +146,17 @@ def post_build(env):
     repositories = [p for p in env.buildlog.repositories if isdir(env.real_outpath(p, basepath="."))]
     repositories.sort(key=lambda name: "0" if name == "modm" else name)
 
+    defaultOutpath = env.outpath("", basepath=".")
+    relPath = env.reloutpath(defaultOutpath, relative=getcwd())
+
+    generated_paths_repositories = repositories
+    if env["link_scons_to_pwd"]:
+        generated_paths_repositories = [join(relPath, r) for r in repositories]
+
+    generatedBuildPath = env.relative_outpath(env[":build:build.path"])
+    if env["link_scons_to_pwd"]:
+        generatedBuildPath = relPath
+
     subs = env.query("::device")
     cache_dir = env["cache_dir"]
     if cache_dir.endswith("$cache"):
@@ -155,10 +170,10 @@ def post_build(env):
         subs["memories"] = []
     # Add SCons specific data
     subs.update({
-        "build_path": env.relative_outpath(env[":build:build.path"]),
+        "build_path": generatedBuildPath,
         "cache_dir": env.relative_outpath(cache_dir) if len(cache_dir) else "",
         "artifact_path": env.relative_outpath(env["path.artifact"]),
-        "generated_paths": repositories,
+        "generated_paths": generated_paths_repositories,
         "is_unittest": is_unittest,
 
         "has_image_source": has_image_source,
@@ -227,8 +242,13 @@ def post_build(env):
 
     # these are the ONLY files that are allowed to NOT be namespaced with modm!
     env.outbasepath = "."
+    sconsFile = "SConstruct"
+
+    if env["link_scons_to_pwd"]:
+        sconsFile = join(getcwd(), sconsFile)
+
     if env["include_sconstruct"]:
-        env.template("resources/SConstruct.in", "SConstruct")
+        env.template("resources/SConstruct.in", dest=sconsFile)
 
 
 # ============================ Option Descriptions ============================
@@ -248,4 +268,12 @@ descr_path_artifact = """# Path to Artifact Store
 The artifact folder contains ELF files named by their GNU build id hash. This
 allows identification of firmware on the device via serial output and is useful
 for archiving or post-mortem debugging.
+"""
+
+descr_link_scons_to_pwd = """# Create SConstruct file in local $PWD
+
+If True, the SConstruct file will be created in the current working directory 
+so that repositories and modules build can be referenced in there, even if these
+are inside another directoy (for example ./build/modm). This allows scons to work
+in the current directory even if module exports are somewhere else entirely (via --path)
 """
