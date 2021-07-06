@@ -142,7 +142,7 @@ def post_build(env):
     repositories = [p for p in env.buildlog.repositories if isdir(env.real_outpath(p, basepath="."))]
     repositories.sort(key=lambda name: "0" if name == "modm" else name)
     
-    generated_paths_repositories = [join(env.relprojectoutpath(""), r) for r in repositories]
+    generated_paths_repositories = [join(env.relcwdoutpath(""), r) for r in repositories]
 
     subs = env.query("::device")
     cache_dir = env["cache_dir"]
@@ -157,7 +157,7 @@ def post_build(env):
         subs["memories"] = []
     # Add SCons specific data
     subs.update({
-        "build_path": env.relprojectoutpath(env[":build:build.path"]),
+        "build_path": env.relcwdoutpath(env[":build:build.path"]),
         "cache_dir": env.relative_outpath(cache_dir) if len(cache_dir) else "",
         "artifact_path": env.relative_outpath(env["path.artifact"]),
         "generated_paths": generated_paths_repositories,
@@ -229,7 +229,7 @@ def post_build(env):
 
     # these are the ONLY files that are allowed to NOT be namespaced with modm!
     env.outbasepath = "."
-    sconsFile = env.projectpath("SConstruct")
+    sconsFile = env.cwdpath("SConstruct")
     if env["include_sconstruct"]:
         env.template("resources/SConstruct.in", dest=sconsFile)
 
